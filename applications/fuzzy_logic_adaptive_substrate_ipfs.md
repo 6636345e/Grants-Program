@@ -156,7 +156,7 @@ Our project is unique in applying **fuzzy logic control theory** to blockchain s
 ### Contact
 
 - **Contact Name:** Thandile Nododile
-- **Contact Email:** 6636345e@gmail.com
+- **Contact Email:** 3692513@myuwc.ac.za
 - **Website:** N/A (Academic research team)
 
 ### Legal Structure
