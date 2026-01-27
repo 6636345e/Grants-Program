@@ -208,7 +208,8 @@ This established research partnership ensures continuity, quality, and successfu
 
 ### Team Code Repos
 
-- https://github.com/6636345e
+- https://github.com/6636345e (@6636345e)
+- https://github.com/nyirendac (@nyirendac)
 
 ### Team LinkedIn Profiles
 
