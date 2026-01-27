@@ -18,22 +18,46 @@ The project extends the Polkadot/Substrate ecosystem by creating a novel adaptiv
 
 #### Problem Statement
 
-Current blockchain-IPFS integrations use static storage policies that cannot adapt to:
-- Varying data sizes and types (numerical readings vs. images vs. sensor streams)
-- Fluctuating network conditions and node availability
-- Different priority levels for data integrity vs. retrieval speed
-- Dynamic workload patterns in IoT applications
+Blockchain-based IoT systems face **inherent uncertainty** that traditional deterministic approaches cannot adequately address. This uncertainty manifests in three critical dimensions:
 
-Our prior research (MSc thesis, 2025) demonstrated that Substrate-IPFS hybrid systems outperform Ethereum-IPFS in storage efficiency and throughput. However, the storage allocation decisions were manually configured, creating a bottleneck for real-world deployment at scale.
+- **Data uncertainty**: IoT sensor readings are inherently imprecise, with varying accuracy levels and measurement noise
+- **Network uncertainty**: Fluctuating latency, variable node availability, and unpredictable throughput patterns
+- **Decision uncertainty**: No clear binary threshold exists for optimal storage allocation—the "best" choice depends on multiple imprecise factors simultaneously
+
+Current blockchain-IPFS integrations rely on **static, rule-based policies** with hard-coded thresholds (e.g., "if file > 1MB, use IPFS"). These deterministic approaches fail because:
+
+1. They cannot handle the **vagueness and ambiguity** inherent in real-world IoT data
+2. They require manual reconfiguration when conditions change
+3. They cannot reason about **partial truth**—a file may be "somewhat large" rather than definitively large or small
+4. They lack the flexibility to balance competing objectives under uncertainty
+
+Our prior research (MSc thesis, 2025) demonstrated that Substrate-IPFS hybrid systems outperform Ethereum-IPFS in storage efficiency and throughput. However, the storage allocation decisions were manually configured using static rules, creating a bottleneck for real-world deployment where conditions are inherently uncertain and dynamic.
+
+#### Why Fuzzy Logic? Handling Uncertainty in Blockchain-IoT Systems
+
+**Fuzzy logic** is a mathematical framework specifically designed to handle uncertainty, vagueness, and imprecision—making it ideally suited for blockchain-IoT storage optimization. Unlike classical binary logic (true/false), fuzzy logic allows for **degrees of truth**, enabling reasoning with linguistic variables such as "high latency," "medium priority," or "mostly available."
+
+Key advantages of fuzzy logic for this application:
+
+| Challenge | Binary/Deterministic Approach | Fuzzy Logic Approach |
+|-----------|------------------------------|---------------------|
+| Imprecise sensor data | Fails or requires arbitrary thresholds | Handles partial membership naturally |
+| Competing objectives | Cannot balance trade-offs | Aggregates multiple fuzzy rules |
+| Changing conditions | Requires manual reconfiguration | Adapts through fuzzy inference |
+| Expert knowledge integration | Difficult to encode | Linguistic rules mirror human reasoning |
+
+Recent research has demonstrated the effectiveness of fuzzy logic in blockchain-IoT environments for managing uncertainty in threat detection, supply chain optimization, and decentralized decision-making (Yazdinejad et al., 2023; MDPI, 2024). Our work extends this by applying fuzzy inference specifically to **storage optimization** in Substrate-based systems.
 
 #### Proposed Solution
 
-We propose a **fuzzy logic adaptive controller** integrated as a Substrate pallet that:
+We propose a **Sugeno fuzzy inference system** integrated as a Substrate pallet that transforms uncertain, imprecise inputs into optimal storage decisions:
 
-1. **Monitors** system state variables (data size, network latency, node count, throughput)
-2. **Infers** optimal storage decisions using fuzzy rules (e.g., IF data_size is LARGE AND network_latency is LOW THEN prefer_ipfs is HIGH)
-3. **Adapts** storage allocation dynamically without manual intervention
-4. **Optimizes** the balance between on-chain integrity verification and off-chain IPFS storage
+1. **Fuzzification**: Converts crisp sensor/network values into fuzzy membership degrees (e.g., latency of 150ms → 0.7 membership in "MEDIUM", 0.3 in "HIGH")
+2. **Fuzzy Inference**: Applies linguistic rules that encode expert knowledge about storage trade-offs under uncertainty
+3. **Defuzzification**: Produces actionable storage decisions (weighted average method for Sugeno systems)
+4. **Adaptive Execution**: Continuously monitors and adjusts as conditions change
+
+This approach enables the system to make **reasonable decisions under uncertainty** rather than failing or requiring manual intervention when conditions don't match rigid thresholds.
 
 #### Technical Architecture
 
@@ -62,25 +86,43 @@ We propose a **fuzzy logic adaptive controller** integrated as a Substrate palle
 
 #### Fuzzy Logic System Design
 
-**Input Variables (Fuzzified):**
+The system employs a **Sugeno-type fuzzy inference system**, chosen for its computational efficiency and suitability for real-time blockchain applications. The design explicitly models the uncertainty inherent in IoT-blockchain environments through carefully defined membership functions and linguistic rules.
+
+**Input Variables with Uncertainty Modeling:**
+
+Each input variable uses **trapezoidal or triangular membership functions** that allow smooth transitions between fuzzy sets, capturing the inherent imprecision in measurements:
+
+| Variable | Fuzzy Sets | Uncertainty Addressed |
+|----------|------------|----------------------|
+| data_size | SMALL, MEDIUM, LARGE | Ambiguous boundaries between "small" and "large" data |
+| network_latency | LOW, MEDIUM, HIGH | Variable and noisy latency measurements |
+| node_availability | LOW, MODERATE, HIGH | Fluctuating peer counts in decentralized networks |
+| data_priority | LOW, NORMAL, CRITICAL | Subjective, application-defined importance levels |
+
+**Output Variable (Sugeno-style):**
 | Variable | Fuzzy Sets | Description |
 |----------|------------|-------------|
-| data_size | SMALL, MEDIUM, LARGE | Size of incoming data payload |
-| network_latency | LOW, MEDIUM, HIGH | Current network response time |
-| node_availability | LOW, MODERATE, HIGH | Active nodes in the network |
-| data_priority | LOW, NORMAL, CRITICAL | Application-defined importance |
+| storage_preference | ONCHAIN_FULL, HYBRID, IPFS_FULL | Weighted output for storage decision |
 
-**Output Variable:**
-| Variable | Fuzzy Sets | Description |
-|----------|------------|-------------|
-| storage_preference | ONCHAIN_FULL, HYBRID, IPFS_FULL | Where to store data |
+**Fuzzy Rule Base (Expert Knowledge Encoding):**
 
-**Sample Fuzzy Rules:**
+The rule base encodes domain expertise about storage trade-offs under uncertainty. Rules use linguistic hedges that mirror human reasoning:
+
 ```
-IF data_size IS SMALL AND data_priority IS CRITICAL THEN storage_preference IS ONCHAIN_FULL
-IF data_size IS LARGE AND network_latency IS LOW THEN storage_preference IS IPFS_FULL
-IF data_size IS MEDIUM AND node_availability IS HIGH THEN storage_preference IS HYBRID
+Rule 1: IF data_size IS SMALL AND data_priority IS CRITICAL THEN storage_preference IS ONCHAIN_FULL
+        (Rationale: Small, critical data benefits from on-chain integrity guarantees)
+
+Rule 2: IF data_size IS LARGE AND network_latency IS LOW THEN storage_preference IS IPFS_FULL
+        (Rationale: Large data with good connectivity should leverage IPFS scalability)
+
+Rule 3: IF data_size IS MEDIUM AND node_availability IS HIGH THEN storage_preference IS HYBRID
+        (Rationale: Moderate data with high availability allows flexible hybrid storage)
+
+Rule 4: IF network_latency IS HIGH AND data_priority IS NOT CRITICAL THEN storage_preference IS ONCHAIN_FULL
+        (Rationale: Poor connectivity favors local on-chain storage for non-critical data)
 ```
+
+The complete system uses **17 fuzzy rules** covering the input space, with rule weights adjustable based on empirical evaluation.
 
 #### Technology Stack
 - **Blockchain Framework**: Substrate (Polkadot SDK)
@@ -138,13 +180,23 @@ The Polkadot ecosystem lacks **adaptive, intelligent storage optimization** for 
 
 #### Similar Projects
 
-| Project | Difference from Our Work |
-|---------|--------------------------|
-| Crust Network | Focuses on decentralized storage incentives, not adaptive decision-making |
-| CESS | Storage infrastructure, no fuzzy logic optimization |
-| Generic IPFS pallets | Static storage policies without adaptive intelligence |
+| Project | Approach | Limitation | Our Differentiation |
+|---------|----------|------------|---------------------|
+| Crust Network | Decentralized storage incentives | No adaptive decision-making; static policies | Fuzzy logic enables dynamic adaptation under uncertainty |
+| CESS | Storage infrastructure layer | Deterministic allocation rules | Our system reasons with imprecise, uncertain inputs |
+| Generic IPFS pallets | Threshold-based storage routing | Hard-coded rules fail when conditions are ambiguous | Membership functions handle partial truth and gradual transitions |
+| FileCoin integrations | Economic incentive-driven storage | Cannot balance multiple uncertain objectives | Fuzzy inference aggregates competing factors intelligently |
 
-Our project is unique in applying **fuzzy logic control theory** to blockchain storage optimization, a novel approach not present in the current ecosystem.
+**What Makes Our Approach Novel:**
+
+Our project is the **first application of fuzzy logic control theory to blockchain storage optimization** in the Polkadot ecosystem. While existing solutions treat storage decisions as binary (on-chain OR off-chain), our approach:
+
+1. **Handles uncertainty explicitly** through fuzzy membership functions
+2. **Reasons with linguistic variables** that mirror expert intuition
+3. **Adapts without reconfiguration** as network conditions change
+4. **Balances competing objectives** (speed vs. integrity vs. cost) under uncertainty
+
+This represents a fundamentally different paradigm: **intelligent decision-making under uncertainty** rather than static rule execution.
 
 ## Team :busts_in_silhouette:
 
@@ -157,7 +209,6 @@ Our project is unique in applying **fuzzy logic control theory** to blockchain s
 
 - **Contact Name:** Thandile Nododile
 - **Contact Email:** 3692513@myuwc.ac.za
-- **Website:** N/A (Academic research team)
 
 ### Legal Structure
 
@@ -325,15 +376,27 @@ Web3 Foundation website and Polkadot documentation research during PhD literatur
 
 4. **Practical Application**: Smart water meter use case addresses real infrastructure challenges in developing regions while validating the technology.
 
-5. **Academic Rigour**: Supervised by Prof. Clement N. Nyirenda (Director of eResearch, UWC; PhD Tokyo Institute of Technology), ensuring research quality, methodology, and international standards. This is an established 3+ year research partnership with proven publication output.
+5. **Academic Rigour**: Supervised by Prof. Clement N. Nyirenda (Director of eResearch, UWC; PhD Tokyo Institute of Technology in Computational Intelligence), ensuring research quality, methodology, and international standards. This is an established 3+ year research partnership with proven publication output.
+
+**Theoretical Foundation - Why Fuzzy Logic for Blockchain-IoT Uncertainty:**
+
+The application of fuzzy logic to blockchain-IoT systems is grounded in established research demonstrating its effectiveness for managing uncertainty in decentralized environments:
+
+- Fuzzy logic provides a **systematic framework for reasoning under uncertainty**, handling vagueness and imprecision that deterministic systems cannot process.
+- Recent work has validated **fuzzy-blockchain integration** for IoT threat detection, showing improved decision-making under uncertainty.
+- Fuzzy inference enables **expert knowledge encoding** through linguistic rules, bridging the gap between human intuition and automated decision-making.
+- Unlike probabilistic approaches, fuzzy logic handles **epistemic uncertainty** (lack of knowledge) rather than just aleatory uncertainty (randomness), making it suitable for storage policy decisions where "optimal" is context-dependent.
+
+This theoretical grounding ensures our approach is not merely heuristic but built on decades of established fuzzy systems research applied to a novel blockchain storage context.
 
 **What Has Already Been Done:**
+- ✅ Local multi-node deployment (4-10 nodes)
+- ✅ Performance benchmarking vs. Ethereum 
 - ✅ 3 peer-reviewed IEEE publications
-- ✅ Performance benchmarking vs. Ethereum (completed)
 - ✅ Real-world datasets (smart meter + medical images)
 
 **What This Grant Funds:**
-- 🔲 Fuzzy logic adaptive layer (novel contribution)
-- 🔲 Dynamic storage optimization
+- 🔲 Fuzzy logic adaptive layer for uncertainty handling (novel contribution)
+- 🔲 Dynamic storage optimization under uncertain conditions
 - 🔲 Substrate pallet implementation
 - 🔲 Evaluation and documentation
